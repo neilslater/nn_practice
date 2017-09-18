@@ -111,7 +111,8 @@ class NN():
 
     def __apply_weight_change(self):
         for layer in self.layers:
-            layer['dWv'] = layer['dWv'] * self.momentum + layer['dW']
+            dW = layer['dW'] + self.l2_reg * layer['W'] # Add L2 regularisation
+            layer['dWv'] = layer['dWv'] * self.momentum + dW
             layer['dbv'] = layer['dbv'] * self.momentum + layer['db']
             layer['W'] -= self.learning_rate * layer['dWv']
             layer['b'] -= self.learning_rate * layer['dbv']
@@ -159,7 +160,8 @@ class NN():
         return (A > 0.5).astype('float')
 
 def build_model(layer_sizes, hidden_activation='relu', l2_reg=0.0005, learning_rate=0.005, momentum=0.9):
-    return NN(layer_sizes, hidden_activation='relu', l2_reg=0.0005, learning_rate=0.005, momentum=0.9)
+    return NN(layer_sizes, hidden_activation=hidden_activation, l2_reg=l2_reg,
+              learning_rate=learning_rate, momentum=momentum)
 
 def train_model(model, X_train, y_train, X_cv, y_cv, epochs=200, batch_size=10):
     return model.fit(X_train, y_train, X_cv, y_cv, epochs=epochs, batch_size=batch_size)
@@ -183,7 +185,7 @@ def main():
     X_train, y_train, X_cv, y_cv, X_test, y_test = get_data()
 
     model = build_model( layer_sizes=[X_train.shape[0], 20, 20, 1],
-                         hidden_activation='relu',
+                         hidden_activation='tanh',
                          l2_reg=0.0005,
                          learning_rate=0.005,
                          momentum=0.9 )
