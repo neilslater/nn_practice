@@ -27,10 +27,10 @@ def tanh_gradient(y):
     return 1.0 - y**2
 
 def relu(x):
-    return (x > 1).astype('float') * x
+    return (x > 0).astype('float') * x
 
 def relu_gradient(y):
-    return (y > 1).astype('float')
+    return (y > 0).astype('float')
 
 class NN():
     def __init__(self, layer_sizes, hidden_activation='relu', l2_reg=0.0005, learning_rate=0.005, momentum=0.9):
@@ -185,7 +185,7 @@ def main():
     X_train, y_train, X_cv, y_cv, X_test, y_test = get_data()
 
     model = build_model( layer_sizes=[X_train.shape[0], 20, 20, 1],
-                         hidden_activation='tanh',
+                         hidden_activation='relu',
                          l2_reg=0.0005,
                          learning_rate=0.005,
                          momentum=0.9 )
