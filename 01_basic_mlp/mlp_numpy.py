@@ -109,18 +109,24 @@ class NN():
         this_layer['dW'] = inv_batch_size * np.dot(dZ, X_batch.T) # ?
         this_layer['db'] = inv_batch_size * np.sum(dZ, axis=1, keepdims=True) # ?
 
-    def __apply_weight_change(self):
+    def __apply_nestorov_step1_weight_change(self):
+        for layer in self.layers:
+            layer['W'] -= self.learning_rate * layer['dWv'] * self.momentum
+            layer['b'] -= self.learning_rate * layer['dbv'] * self.momentum
+
+    def __apply_nestorov_step2_weight_change(self):
         for layer in self.layers:
             dW = layer['dW'] + self.l2_reg * layer['W'] # Add L2 regularisation
             layer['dWv'] = layer['dWv'] * self.momentum + dW
             layer['dbv'] = layer['dbv'] * self.momentum + layer['db']
-            layer['W'] -= self.learning_rate * layer['dWv']
-            layer['b'] -= self.learning_rate * layer['dbv']
+            layer['W'] -= self.learning_rate * dW
+            layer['b'] -= self.learning_rate * layer['db']
 
     def __train_on_batch(self, X_batch, Y_batch):
         (cost, accuracy) = self.__fwd_cost(X_batch, Y_batch)
+        self.__apply_nestorov_step1_weight_change()
         self.__backprop_calc_gradients(X_batch, Y_batch)
-        self.__apply_weight_change()
+        self.__apply_nestorov_step2_weight_change()
         return (cost, accuracy)
 
     def fit(self, X_train, y_train, X_cv, y_cv, epochs, batch_size):
