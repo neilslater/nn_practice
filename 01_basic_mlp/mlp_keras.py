@@ -19,7 +19,7 @@ def build_model(layer_sizes, hidden_activation='relu', l2_reg=0.0005, learning_r
 
     model.add(Activation('sigmoid'))
 
-    sgd = SGD(lr=learning_rate, momentum=momentum)
+    sgd = SGD(lr=learning_rate, momentum=momentum, nesterov=True)
     model.compile(loss='binary_crossentropy', optimizer=sgd, metrics=['accuracy'])
 
     return model
