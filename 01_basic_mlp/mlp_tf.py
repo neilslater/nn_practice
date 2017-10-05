@@ -72,9 +72,9 @@ class NN():
         train_costs = []
         val_costs = []
 
-        sess = tf.Session()
+        self.sess = tf.Session()
         init = tf.global_variables_initializer()
-        sess.run(init)
+        self.sess.run(init)
 
         nbatches = int(X_train.shape[0]/batch_size)
 
@@ -87,13 +87,13 @@ class NN():
                 X_batch = X_train[this_batch, :]
                 Y_batch = y_train[this_batch, :]
 
-                batch_cost, batch_accuracy = self.__train_on_batch(X_batch, Y_batch, sess)
+                batch_cost, batch_accuracy = self.__train_on_batch(X_batch, Y_batch, self.sess)
                 train_cost += batch_cost
                 train_accuracy += batch_accuracy
 
             train_cost /= nbatches
             train_accuracy /= nbatches
-            val_cost, val_accuracy = sess.run([ self.cost, self.accuracy],
+            val_cost, val_accuracy = self.sess.run([ self.cost, self.accuracy],
                                  feed_dict={self.X: X_cv, self.Y: y_cv})
 
             train_accuracies.append(train_accuracy)
@@ -101,14 +101,13 @@ class NN():
             train_costs.append(train_cost)
             val_costs.append(val_cost)
 
-        sess.close()
 
         return { 'acc': train_accuracies, 'val_acc': val_accuracies,
                  'cost': train_costs, 'val_cost': val_costs }
 
     def predict_classes(self, X_batch):
-        A = self.__forward(X_batch)
-        return (A > 0.5).astype('float')
+        Y_pred = self.sess.run(self.Y_pred, feed_dict={self.X: X_batch})
+        return Y_pred
 
 def build_model(layer_sizes, hidden_activation='relu', l2_reg=0.0005, learning_rate=0.005, momentum=0.9):
     return NN(layer_sizes, hidden_activation=hidden_activation, l2_reg=l2_reg,
@@ -142,7 +141,7 @@ def main():
                          momentum=0.9 )
 
     history = train_model(model, X_train, y_train, X_cv, y_cv)
-    #test_model(model, X_test, y_test)
+    test_model(model, X_test, y_test)
     plot_history(history)
 
 if __name__ == '__main__':
