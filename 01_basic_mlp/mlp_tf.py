@@ -37,32 +37,33 @@ class NN():
             n_out = layer_sizes[l+1]
             scale = math.sqrt(2/(n_in + n_out))
             W = tf.Variable(tf.random_normal([n_in, n_out]) * scale, name='W{}'.format(l+1))
-            b = tf.Variable(tf.zeros([n_out,1]), name='b{}'.format(l+1))
+            b = tf.Variable(tf.zeros([n_out]), name='b{}'.format(l+1))
             Z = tf.add(tf.matmul(prev_A, W), b, name='Z{}'.format(l+1))
             if l + 1 <  self.nlayers:
                 A = activation_fn(Z, name='A{}'.format(l+1))
             else:
-                A = tf.nn.sigmoid(Z, name='Y_pred')
+                A = tf.nn.sigmoid(Z, name='Y_prob')
+
+            # print('prev_A {}, W {}, b {}, Z {}, A {}'.format(prev_A.get_shape(), W.get_shape(), b.get_shape(), Z.get_shape(), A.get_shape()))
             prev_A = A
 
         self.logits = Z
-        self.Y_pred = A
+        self.Y_pred = tf.cast(tf.greater(A, 0.5, name='Y_pred'), 'float')
 
         self.cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.Y))
-        # TODO: Add L2 weights loss to cost
-        self.l2_reg = l2_reg # TODO: Use this!
+
+        self.correct = tf.equal(self.Y_pred, self.Y)
+        self.accuracy = tf.reduce_mean(tf.cast(self.correct, 'float'))
 
         self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-        self.train_op = self.optimizer.minimize(self.cost)
+        self.train = self.optimizer.minimize(self.cost)
 
         # TODO: Add Nestorov momentum
         self.momentum = momentum
 
-    def __train_on_batch(self, X_batch, Y_batch):
-        (cost, accuracy) = self.__fwd_cost(X_batch, Y_batch)
-        self.__apply_nestorov_step1_weight_change()
-        self.__backprop_calc_gradients(X_batch, Y_batch)
-        self.__apply_nestorov_step2_weight_change()
+    def __train_on_batch(self, X_batch, Y_batch, sess):
+        _, cost, accuracy = sess.run([self.train, self.cost, self.accuracy],
+                                 feed_dict={self.X: X_batch, self.Y: Y_batch})
         return (cost, accuracy)
 
     def fit(self, X_train, y_train, X_cv, y_cv, epochs, batch_size):
@@ -71,30 +72,36 @@ class NN():
         train_costs = []
         val_costs = []
 
-        nbatches = int(X_train.shape[1]/batch_size)
+        sess = tf.Session()
+        init = tf.global_variables_initializer()
+        sess.run(init)
+
+        nbatches = int(X_train.shape[0]/batch_size)
 
         for epoch in range(epochs):
-            batch_idx = np.random.permutation(X_train.shape[1])
+            batch_idx = np.random.permutation(X_train.shape[0])
             train_cost = 0.0
             train_accuracy = 0.0
             for b in range(nbatches):
                 this_batch = batch_idx[b*batch_size:(b+1)*batch_size]
-                X_batch = X_train[:, this_batch]
-                Y_batch = y_train[:, this_batch]
+                X_batch = X_train[this_batch, :]
+                Y_batch = y_train[this_batch, :]
 
-
-                batch_cost, batch_accuracy = self.__train_on_batch(X_batch, Y_batch)
+                batch_cost, batch_accuracy = self.__train_on_batch(X_batch, Y_batch, sess)
                 train_cost += batch_cost
                 train_accuracy += batch_accuracy
 
             train_cost /= nbatches
             train_accuracy /= nbatches
-            val_cost, val_accuracy = self.__fwd_cost(X_cv, y_cv)
+            val_cost, val_accuracy = sess.run([ self.cost, self.accuracy],
+                                 feed_dict={self.X: X_cv, self.Y: y_cv})
 
             train_accuracies.append(train_accuracy)
             val_accuracies.append(val_accuracy)
             train_costs.append(train_cost)
             val_costs.append(val_cost)
+
+        sess.close()
 
         return { 'acc': train_accuracies, 'val_acc': val_accuracies,
                  'cost': train_costs, 'val_cost': val_costs }
@@ -134,9 +141,9 @@ def main():
                          learning_rate=0.005,
                          momentum=0.9 )
 
-    #history = train_model(model, X_train, y_train, X_cv, y_cv)
+    history = train_model(model, X_train, y_train, X_cv, y_cv)
     #test_model(model, X_test, y_test)
-    #plot_history(history)
+    plot_history(history)
 
 if __name__ == '__main__':
     main()
