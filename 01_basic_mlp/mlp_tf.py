@@ -32,10 +32,13 @@ class NN():
 
         prev_A = self.X
 
+        self.wl2 = 0
+
         for l in range(self.nlayers):
             n_in = layer_sizes[l]
             n_out = layer_sizes[l+1]
             scale = math.sqrt(2/(n_in + n_out))
+
             W = tf.Variable(tf.random_normal([n_in, n_out]) * scale, name='W{}'.format(l+1))
             b = tf.Variable(tf.zeros([n_out]), name='b{}'.format(l+1))
             Z = tf.add(tf.matmul(prev_A, W), b, name='Z{}'.format(l+1))
@@ -44,7 +47,7 @@ class NN():
             else:
                 A = tf.nn.sigmoid(Z, name='Y_prob')
 
-            # print('prev_A {}, W {}, b {}, Z {}, A {}'.format(prev_A.get_shape(), W.get_shape(), b.get_shape(), Z.get_shape(), A.get_shape()))
+            self.wl2 = self.wl2 + tf.nn.l2_loss(W)
             prev_A = A
 
         self.logits = Z
@@ -52,17 +55,16 @@ class NN():
 
         self.cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=self.Y))
 
+        self.cost_plus_wl2 = self.cost + l2_reg * self.wl2
+
         self.correct = tf.equal(self.Y_pred, self.Y)
         self.accuracy = tf.reduce_mean(tf.cast(self.correct, 'float'))
 
-        self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-        self.train = self.optimizer.minimize(self.cost)
+        self.optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=momentum, use_nesterov=True)
+        self.train = self.optimizer.minimize(self.cost_plus_wl2)
 
-        # TODO: Add Nestorov momentum
-        self.momentum = momentum
-
-    def __train_on_batch(self, X_batch, Y_batch, sess):
-        _, cost, accuracy = sess.run([self.train, self.cost, self.accuracy],
+    def __train_on_batch(self, X_batch, Y_batch):
+        _, cost, accuracy = self.sess.run([self.train, self.cost, self.accuracy],
                                  feed_dict={self.X: X_batch, self.Y: Y_batch})
         return (cost, accuracy)
 
@@ -87,7 +89,7 @@ class NN():
                 X_batch = X_train[this_batch, :]
                 Y_batch = y_train[this_batch, :]
 
-                batch_cost, batch_accuracy = self.__train_on_batch(X_batch, Y_batch, self.sess)
+                batch_cost, batch_accuracy = self.__train_on_batch(X_batch, Y_batch)
                 train_cost += batch_cost
                 train_accuracy += batch_accuracy
 
@@ -101,13 +103,15 @@ class NN():
             train_costs.append(train_cost)
             val_costs.append(val_cost)
 
-
         return { 'acc': train_accuracies, 'val_acc': val_accuracies,
                  'cost': train_costs, 'val_cost': val_costs }
 
     def predict_classes(self, X_batch):
         Y_pred = self.sess.run(self.Y_pred, feed_dict={self.X: X_batch})
         return Y_pred
+
+    def test_accuracy(self, X_batch, Y_batch):
+        return self.sess.run(self.accuracy, feed_dict={self.X: X_batch, self.Y: Y_batch})
 
 def build_model(layer_sizes, hidden_activation='relu', l2_reg=0.0005, learning_rate=0.005, momentum=0.9):
     return NN(layer_sizes, hidden_activation=hidden_activation, l2_reg=l2_reg,
@@ -117,9 +121,8 @@ def train_model(model, X_train, y_train, X_cv, y_cv, epochs=200, batch_size=10):
     return model.fit(X_train, y_train, X_cv, y_cv, epochs=epochs, batch_size=batch_size)
 
 def test_model(model, X_test, y_test):
-    y_pred = model.predict_classes(X_test)
-    accuracy = np.mean( (y_pred == y_test).astype('float') )
-    print("Final accuracy {}".format(accuracy * 100))
+    accuracy = model.test_accuracy(X_test, y_test)
+    print("Final accuracy {:0.1f}".format(accuracy * 100))
 
 def plot_history(history):
     plt.plot(history['acc'])
