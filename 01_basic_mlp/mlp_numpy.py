@@ -52,7 +52,7 @@ class NN():
         for l in range(self.nlayers):
             n_in = layer_sizes[l]
             n_out = layer_sizes[l+1]
-            W = np.random.randn(n_out, n_in) * 2.0 / math.sqrt(n_in + n_out)
+            W = np.random.randn(n_out, n_in) * math.sqrt(2.0 / math.sqrt(n_in + n_out))
             b = np.zeros([n_out, 1])
             layer = {
                 'W': W,
