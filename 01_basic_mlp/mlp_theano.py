@@ -78,7 +78,7 @@ class NN():
             nesterov_step_a_updates.append( (layer['W'], layer['W'] - learning_rate * layer['dWv']) )
             nesterov_step_a_updates.append( (layer['b'], layer['b'] - learning_rate * layer['dbv']) )
 
-            dW = T.grad(cost, layer['W'])
+            dW = T.grad(cost, layer['W']) + l2_reg * layer['W']
             db = T.grad(cost, layer['b'])
 
             nesterov_step_b_updates.append( (layer['W'], layer['W'] - learning_rate * dW) )
